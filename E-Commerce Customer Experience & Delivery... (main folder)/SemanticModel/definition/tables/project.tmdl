@@ -1,0 +1,81 @@
+table project
+	lineageTag: 4c02d997-ab2f-47f2-81ed-e656e20d0569
+
+	column Name
+		dataType: string
+		lineageTag: d65850f3-9ce9-4223-9c0e-1c8083fa6465
+		summarizeBy: none
+		sourceColumn: Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column Extension
+		dataType: string
+		lineageTag: 9a460486-4ad5-4b05-aa4a-96043954f31f
+		summarizeBy: none
+		sourceColumn: Extension
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Date accessed'
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 3863cba3-553c-4b4e-8a33-791135089aae
+		summarizeBy: none
+		sourceColumn: Date accessed
+
+		variation Variation
+			isDefault
+			relationship: 07c9f975-6092-49fa-b4e7-107288b141a9
+			defaultHierarchy: LocalDateTable_c12472a2-4c17-4134-9fc7-fb790860f692.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Date modified'
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 096ca726-8b2b-4ad0-b6d4-4c7b0b27f472
+		summarizeBy: none
+		sourceColumn: Date modified
+
+		variation Variation
+			isDefault
+			relationship: 24ef1e5c-2f4a-4bfa-968b-c4e87db01665
+			defaultHierarchy: LocalDateTable_c31fe4ac-e781-4060-a5a7-aa248350edeb.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Date created'
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: dc76fe9c-86b7-4425-8d88-4809df60318c
+		summarizeBy: none
+		sourceColumn: Date created
+
+		variation Variation
+			isDefault
+			relationship: 9dc3e346-0034-4531-ab4c-1c1d8690bc64
+			defaultHierarchy: LocalDateTable_90d2aabe-93a5-4c74-996f-475e7506365e.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Folder Path'
+		dataType: string
+		lineageTag: cc6b117d-3950-430f-a680-d96ee073cc87
+		summarizeBy: none
+		sourceColumn: Folder Path
+
+		annotation SummarizationSetBy = Automatic
+
+	partition project = m
+		mode: import
+		source =
+				let
+				    Source = Folder.Files("C:\PowerBi\project")
+				in
+				    Source
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Exception
+

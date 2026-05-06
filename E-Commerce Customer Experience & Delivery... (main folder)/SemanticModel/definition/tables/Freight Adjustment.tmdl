@@ -1,0 +1,30 @@
+table 'Freight Adjustment'
+	lineageTag: 38ec7197-8612-4c51-a898-d1389f209b03
+
+	/// Returns the currently selected Freight Adjustment multiplier value (default 1.0 when nothing selected)
+	measure 'Freight Adjustment Value' =
+			-- Freight Adjustment Value
+			-- Reads the selected value from the Freight Adjustment parameter table
+			-- SELECTEDVALUE returns the single selected row value
+			-- Default of 1.0 = no change to freight costs (100% of original)
+			-- Used as the multiplier in [Adjusted Revenue] and [Freight Impact]
+			VAR _Selected =
+			    SELECTEDVALUE(
+			        'Freight Adjustment'[Freight Adjustment],
+			        1.0   -- Default: multiplier = 1.0 (no adjustment)
+			    )
+			RETURN _Selected
+		formatString: 0.0"x"
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: 011030e8-4c1d-4981-acfd-a7f7c20da836
+
+	column 'Freight Adjustment'
+		formatString: 0.0"x"
+		lineageTag: 33967f00-e261-41ca-a36e-b2e2763e2a3e
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition 'Freight Adjustment' = calculated
+		mode: import
+		source = GENERATESERIES(0.5, 2.0, 0.1)
+

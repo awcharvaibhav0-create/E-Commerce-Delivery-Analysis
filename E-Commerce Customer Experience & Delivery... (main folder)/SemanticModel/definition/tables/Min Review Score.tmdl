@@ -1,0 +1,30 @@
+table 'Min Review Score'
+	lineageTag: 64d482eb-524e-4058-b049-922d6d228cec
+
+	/// Returns the currently selected minimum review score filter value (default 1 = all reviews)
+	measure 'Min Review Score Value' =
+			-- Min Review Score Value
+			-- Reads the selected minimum score from the Min Review Score parameter table
+			-- Default of 1 = include all reviews (no filtering)
+			-- Used as a threshold in FILTER expressions across review measures
+			-- When slider set to 4: only 4★ and 5★ reviews are included
+			VAR _Selected =
+			    SELECTEDVALUE(
+			        'Min Review Score'[Min Review Score],
+			        1   -- Default: include all scores (1-5)
+			    )
+			RETURN _Selected
+		formatString: #,##0 "★ min"
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: 525600f2-9ab7-4e45-a810-ddb9f52d9e86
+
+	column 'Min Review Score'
+		formatString: #,##0
+		lineageTag: e3f4dee2-af90-4f74-a6f4-f28c9fd555da
+		summarizeBy: none
+		sourceColumn: [Value]
+
+	partition 'Min Review Score' = calculated
+		mode: import
+		source = GENERATESERIES(1, 5, 1)
+

@@ -1,0 +1,549 @@
+table order_items
+	lineageTag: b189d592-4719-4f19-bc24-26b0a3252589
+
+	/// Sum of product price and freight value across all line items in context
+	measure 'Total Revenue' =
+			-- M1: Total Revenue
+			-- Sums price + freight_value across all order_items rows in filter context
+			-- Uses the [Item Revenue] calculated column (price + freight_value)
+			-- VAR pattern: improves readability and allows result reuse within measure
+			-- SUMX iterates each row and evaluates the expression per row
+			VAR _Revenue =
+			    SUMX(
+			        order_items,
+			        order_items[price] + order_items[freight_value]
+			    )
+			RETURN
+			    _Revenue
+		formatString: R$ #,##0.00
+		displayFolder: 📊 Basic Metrics
+		lineageTag: d8139f1c-159b-47d3-b0e4-ca33b694cdde
+
+	/// Average revenue per order: Total Revenue divided by Total Orders
+	measure 'Avg Order Value' =
+			-- M4: Average Order Value (AOV)
+			-- Divides Total Revenue by Total Orders using safe DIVIDE function
+			-- DIVIDE handles zero-division gracefully — returns BLANK() when
+			-- Total Orders = 0 (e.g. empty slicer selections, filtered-out periods)
+			-- Never use the / operator for division in measures — it throws errors on zero
+			-- VAR references the base measures for DRY principle and avoid recalculation
+			VAR _Revenue = [Total Revenue]
+			VAR _Orders  = [Total Orders]
+			VAR _AOV =
+			    DIVIDE(
+			        _Revenue,
+			        _Orders,
+			        BLANK()     -- Alternate result when denominator is zero or blank
+			    )
+			RETURN
+			    _AOV
+		formatString: R$ #,##0.00
+		displayFolder: 📊 Basic Metrics
+		lineageTag: 3dfeb328-125f-4762-935b-723e26f7e060
+
+	/// Average revenue generated per unique customer in filter context
+	measure 'Revenue per Customer' =
+			-- M9: Revenue per Customer
+			-- Divides Total Revenue by the count of unique customers in context
+			-- Measures average spending value of each customer
+			-- Reuses base measures [Total Revenue] and [Total Customers] (Prompt 7.1)
+			-- DIVIDE with BLANK() alternate protects against empty filter contexts
+			
+			VAR _Revenue   = [Total Revenue]
+			VAR _Customers = [Total Customers]
+			
+			VAR _RevenuePerCustomer =
+			    DIVIDE(
+			        _Revenue,
+			        _Customers,
+			        BLANK()     -- Returns BLANK() when no customers in context
+			    )
+			
+			RETURN
+			    _RevenuePerCustomer
+		formatString: R$ #,##0.00
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 99f2df5a-7ea8-4bf8-9c4a-ca7eb97b6d48
+
+	/// Total count of individual product line items sold across all orders in filter context
+	measure 'Total Items Sold' =
+			-- M10: Total Items Sold
+			-- Counts every individual line item row in order_items in filter context
+			-- Uses COUNTROWS rather than COUNT(order_item_id) for two reasons:
+			-- 1. COUNTROWS is faster — no column scan, just row count
+			-- 2. COUNT skips nulls; COUNTROWS counts all rows including any with null keys
+			-- order_item_id is a sequential integer (1..21) and is never null in this dataset
+			-- but COUNTROWS is the safer, more idiomatic DAX pattern for row counting
+			
+			VAR _ItemsSold =
+			    COUNTROWS(order_items)
+			
+			RETURN
+			    _ItemsSold
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: c9b630b2-bcf9-46f1-a74c-54ec5f912eba
+
+	/// Cumulative revenue from the start of the calendar year to the last date in the current filter context
+	measure 'YTD Revenue' =
+			-- TI1: Year-To-Date Revenue
+			-- Accumulates [Total Revenue] from Jan 1 of the current year
+			-- up to the last visible date in the filter context
+			-- TOTALYTD is equivalent to:
+			--   CALCULATE([Total Revenue], DATESYTD(Calendar[Date]))
+			-- Requires Calendar to be marked as a Date Table (done in Prompt 4.1)
+			-- Returns BLANK() when no dates are in context
+			
+			VAR _YTD =
+			    TOTALYTD(
+			        [Total Revenue],
+			        Calendar[Date]
+			    )
+			
+			RETURN
+			    _YTD
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: aaaa06ba-76f4-4b75-a8f0-3156b3582b74
+
+	/// Cumulative revenue from the start of the current month to the last date in the current filter context
+	measure 'MTD Revenue' =
+			-- TI2: Month-To-Date Revenue
+			-- Accumulates [Total Revenue] from the 1st of the current month
+			-- up to the last visible date in the filter context
+			-- TOTALMTD is equivalent to:
+			--   CALCULATE([Total Revenue], DATESMTD(Calendar[Date]))
+			-- Most useful in daily/weekly report contexts
+			
+			VAR _MTD =
+			    TOTALMTD(
+			        [Total Revenue],
+			        Calendar[Date]
+			    )
+			
+			RETURN
+			    _MTD
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: 4989fa48-01cf-4c30-8347-75e603cebdb8
+
+	/// Cumulative revenue from the start of the current quarter to the last date in the current filter context
+	measure 'QTD Revenue' =
+			-- TI3: Quarter-To-Date Revenue
+			-- Accumulates [Total Revenue] from the 1st day of the current quarter
+			-- up to the last visible date in the filter context
+			-- TOTALQTD is equivalent to:
+			--   CALCULATE([Total Revenue], DATESQTD(Calendar[Date]))
+			-- Quarters follow calendar year (Q1=Jan-Mar, Q2=Apr-Jun, etc.)
+			-- For fiscal quarter YTD, use DATESQTD with fiscal year end param
+			
+			VAR _QTD =
+			    TOTALQTD(
+			        [Total Revenue],
+			        Calendar[Date]
+			    )
+			
+			RETURN
+			    _QTD
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: b1ab23cb-790c-47bb-b29a-dc10d0583b8d
+
+	/// Total revenue for the same period in the previous calendar year
+	measure 'PY Revenue' =
+			-- TI4: Previous Year Revenue
+			-- Shifts the current date filter context back exactly 12 months
+			-- PREVIOUSYEAR returns ALL dates in the prior year, not just the same period
+			-- e.g. if filter = Jan-Jun 2018, PY Revenue = full Jan-Dec 2017
+			-- For same-period-prior-year (SPLY) comparison, use SAMEPERIODLASTYEAR instead
+			-- PREVIOUSYEAR is best used in year-level visuals and YoY KPI cards
+			
+			VAR _PYRevenue =
+			    CALCULATE(
+			        [Total Revenue],
+			        PREVIOUSYEAR(Calendar[Date])
+			    )
+			
+			-- Return BLANK() explicitly when prior year has no data
+			-- avoids showing R$ 0.00 for years before the dataset begins (pre-2016)
+			VAR _Result =
+			    IF(
+			        ISBLANK(_PYRevenue),
+			        BLANK(),
+			        _PYRevenue
+			    )
+			
+			RETURN
+			    _Result
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: 5d8678d2-5975-474b-b107-2c63b0910147
+
+	/// Year-over-Year revenue growth percentage: (Current Year - Prior Year) / Prior Year
+	measure 'YoY Growth %' =
+			-- TI5: Year-over-Year Growth %
+			-- Measures revenue growth rate vs the same period last year
+			-- Three-tier null handling:
+			--   1. No current revenue  → BLANK() (nothing to compare)
+			--   2. No prior year revenue → BLANK() (would produce infinite/misleading %)
+			--   3. Both present → standard % change formula
+			-- DIVIDE used for zero-division safety on the denominator
+			
+			VAR _CurrentRevenue = [Total Revenue]
+			VAR _PYRevenue      = [PY Revenue]
+			
+			-- Guard 1: Current period has no revenue — no basis for growth calc
+			VAR _HasCurrent = NOT ISBLANK(_CurrentRevenue)
+			
+			-- Guard 2: Prior year has no revenue — growth % would be infinite or misleading
+			VAR _HasPrior = NOT ISBLANK(_PYRevenue) && _PYRevenue <> 0
+			
+			VAR _YoYGrowth =
+			    IF(
+			        _HasCurrent && _HasPrior,
+			        DIVIDE(
+			            _CurrentRevenue - _PYRevenue,
+			            _PYRevenue,
+			            BLANK()     -- DIVIDE zero-guard (redundant here but explicit)
+			        ),
+			        BLANK()         -- Either period missing — return blank, not 0% or error
+			    )
+			
+			RETURN
+			    _YoYGrowth
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: 1896dc91-021e-4e61-b159-635123ea7226
+
+	/// Total revenue for the previous calendar month relative to the current filter context
+	measure 'PM Revenue' =
+			-- TI6: Previous Month Revenue
+			-- Shifts the date filter back to the immediately preceding full month
+			-- PREVIOUSMONTH returns ALL days of the prior month regardless of
+			-- how many days are selected in the current month
+			-- e.g. if filter = last 10 days of Aug 2018 → PM = full Jul 2018
+			-- For same partial-period prior month, use DATEADD(Calendar[Date],-1,MONTH)
+			
+			VAR _PMRevenue =
+			    CALCULATE(
+			        [Total Revenue],
+			        PREVIOUSMONTH(Calendar[Date])
+			    )
+			
+			-- Explicit BLANK guard: avoids R$ 0.00 display for months with no prior data
+			VAR _Result =
+			    IF(
+			        ISBLANK(_PMRevenue),
+			        BLANK(),
+			        _PMRevenue
+			    )
+			
+			RETURN
+			    _Result
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: 0e780d73-f441-4a41-ac23-0bcd32d8e48d
+
+	/// Total revenue for the 3-month rolling window ending on the last date in the current filter context
+	measure 'Rolling 3M Revenue' =
+			-- TI7: Rolling 3-Month Revenue
+			-- Calculates revenue for the 3 calendar months ending on the last
+			-- visible date in the current filter context (sliding/rolling window)
+			-- DATESINPERIOD(date_col, end_date, -3, MONTH) builds a dynamic
+			-- date range: from (last_date - 3 months + 1 day) to last_date
+			-- Unlike TOTALQTD which resets at quarter boundaries,
+			-- this window slides continuously — every month gets a full 3-month lookback
+			
+			VAR _LastDate = MAX(Calendar[Date])      -- Anchor: last date in filter context
+			
+			VAR _Rolling3M =
+			    CALCULATE(
+			        [Total Revenue],
+			        DATESINPERIOD(
+			            Calendar[Date],
+			            _LastDate,
+			            -3,             -- Look back 3 units
+			            MONTH           -- Unit of period
+			        )
+			    )
+			
+			-- Guard: return BLANK() when no anchor date exists in context
+			VAR _Result =
+			    IF(
+			        ISBLANK(_LastDate),
+			        BLANK(),
+			        _Rolling3M
+			    )
+			
+			RETURN
+			    _Result
+		formatString: R$ #,##0.00
+		displayFolder: ⏰ Time Intelligence
+		lineageTag: 06d8cee3-603a-47ea-b739-9caaf53383d2
+
+	/// Total orders count correctly scoped through order_items bridge to products
+	measure 'Category Orders' =
+			-- Orders via product bridge
+			-- Uses INTERSECT to scope order_ids that contain the filtered product(s)
+			-- Needed because products -> order_items -> orders is a many-many bridge
+			-- Standard [Total Orders] on orders table doesn't receive products filter
+			VAR _OrdersWithProduct =
+			    CALCULATETABLE(
+			        VALUES(order_items[order_id]),
+			        TREATAS(VALUES(products[product_id]), order_items[product_id])
+			    )
+			VAR _Count =
+			    CALCULATE(
+			        DISTINCTCOUNT(orders[order_id]),
+			        TREATAS(_OrdersWithProduct, orders[order_id])
+			    )
+			RETURN
+			    IF(ISBLANK(_Count), BLANK(), _Count)
+		formatString: #,##0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: fe09fc47-81f8-4e7d-80e7-a45c740b140b
+
+	/// Average review score scoped through order_items bridge to products
+	measure 'Category Avg Score' =
+			-- Review score scoped via product bridge
+			-- Finds order_ids for filtered products, then averages reviews on those orders
+			VAR _OrdersWithProduct =
+			    CALCULATETABLE(
+			        VALUES(order_items[order_id]),
+			        TREATAS(VALUES(products[product_id]), order_items[product_id])
+			    )
+			VAR _AvgScore =
+			    CALCULATE(
+			        AVERAGE(order_reviews[review_score]),
+			        TREATAS(_OrdersWithProduct, order_reviews[order_id])
+			    )
+			RETURN
+			    IF(ISBLANK(_AvgScore), BLANK(), _AvgScore)
+		formatString: #,##0.00
+		displayFolder: 📊 Basic Metrics
+		lineageTag: 40009bb1-f371-43ef-9e6f-cfb45d77d674
+
+	/// Late delivery % scoped through order_items bridge to products
+	measure 'Category Late %' =
+			-- Late delivery % scoped via product bridge
+			VAR _OrdersWithProduct =
+			    CALCULATETABLE(
+			        VALUES(order_items[order_id]),
+			        TREATAS(VALUES(products[product_id]), order_items[product_id])
+			    )
+			VAR _Late =
+			    CALCULATE(
+			        COUNTROWS(FILTER(orders, orders[Delivery Status] = "Late")),
+			        TREATAS(_OrdersWithProduct, orders[order_id])
+			    )
+			VAR _Delivered =
+			    CALCULATE(
+			        COUNTROWS(FILTER(orders, orders[Delivery Status] <> "Not Delivered")),
+			        TREATAS(_OrdersWithProduct, orders[order_id])
+			    )
+			RETURN
+			    DIVIDE(_Late, _Delivered, BLANK())
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 1a8cf02d-b7ad-47a0-9b72-fa6a1ebfde34
+
+	/// Revenue share percentage of selected category vs total revenue across all categories
+	measure 'Revenue Share %' =
+			-- Revenue Share %
+			-- Shows what % of total revenue a category (or any filtered context) represents
+			-- ALL(products) removes any product/category filter to get the grand total denominator
+			-- Used in the Category Summary table visual and treemap tooltips
+			VAR _CategoryRevenue = [Total Revenue]
+			VAR _TotalRevenue =
+			    CALCULATE([Total Revenue], ALL(products))
+			VAR _Share =
+			    DIVIDE(_CategoryRevenue, _TotalRevenue, BLANK())
+			RETURN
+			    _Share
+		formatString: 0.00%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 8b783b22-b7a5-4713-bb3e-ab3bc399473a
+
+	/// Count of distinct sellers who made at least one sale in the filter context
+	measure 'Total Sellers' =
+			-- Total Sellers
+			-- Counts distinct seller_id values in order_items in filter context
+			-- Uses order_items (the fact table) not sellers dimension
+			-- to count only ACTIVE sellers (those with actual orders)
+			-- not all registered sellers in the sellers table
+			VAR _Sellers =
+			    DISTINCTCOUNT(order_items[seller_id])
+			RETURN
+			    IF(ISBLANK(_Sellers), 0, _Sellers)
+		formatString: #,##0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: c520eafe-654b-445e-92ab-c36f62ec62cd
+
+	/// Average revenue generated per active seller in the filter context
+	measure 'Revenue per Seller' =
+			-- Revenue per Seller
+			-- Average revenue per active seller in filter context
+			-- Measures economic output per seller — key SDG 8 indicator
+			-- Uses DIVIDE with BLANK() guard for empty contexts
+			VAR _Revenue = [Total Revenue]
+			VAR _Sellers = [Total Sellers]
+			RETURN
+			    DIVIDE(_Revenue, _Sellers, BLANK())
+		formatString: R$ #,##0.00
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 7b6194e6-ceac-420c-924d-d331a73f9bce
+
+	/// Quarter-over-Quarter growth rate in active seller count
+	measure 'Seller QoQ Growth %' =
+			-- Seller QoQ Growth %
+			-- Quarter-over-Quarter growth in distinct active sellers
+			-- Measures how fast the seller network is expanding
+			-- Used for the seller growth line chart trend annotation
+			VAR _Current  = [Total Sellers]
+			VAR _Previous = CALCULATE([Total Sellers], PREVIOUSQUARTER(Calendar[Date]))
+			VAR _Growth =
+			    IF(
+			        NOT ISBLANK(_Current) && NOT ISBLANK(_Previous) && _Previous <> 0,
+			        DIVIDE(_Current - _Previous, _Previous, BLANK()),
+			        BLANK()
+			    )
+			RETURN _Growth
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 3d8785ac-b43d-4372-b6fd-1ce6f60ebfa1
+
+	/// Total revenue with freight costs scaled by the Freight Adjustment multiplier
+	measure 'Adjusted Revenue' =
+			-- Adjusted Revenue
+			-- Recalculates total revenue using the What-If freight multiplier
+			-- SUMX iterates each order_items row and applies:
+			--   price (unchanged) + freight_value * [Freight Adjustment Value]
+			-- At multiplier 1.0 = same as [Total Revenue] (R$15,843,553)
+			-- At multiplier 0.5 = R$14,717,598 (freight halved — 50% discount scenario)
+			-- At multiplier 2.0 = R$18,095,463 (freight doubled — cost-pass-through scenario)
+			-- VAR caches the multiplier once per evaluation for performance
+			VAR _Multiplier = [Freight Adjustment Value]
+			VAR _AdjustedRevenue =
+			    SUMX(
+			        order_items,
+			        order_items[price]
+			            + ( order_items[freight_value] * _Multiplier )
+			    )
+			RETURN
+			    IF(ISBLANK(_AdjustedRevenue), BLANK(), _AdjustedRevenue)
+		formatString: R$ #,##0.00
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: 9db51e89-5df1-4aac-8275-faa3ad923e5c
+
+	/// Revenue difference between Adjusted Revenue and baseline Total Revenue
+	measure 'Freight Impact' =
+			-- Freight Impact (Delta)
+			-- Shows the absolute BRL difference between the adjusted and baseline revenue
+			-- Positive = freight increase adds to revenue (passed to customers)
+			-- Negative = freight reduction reduces revenue (subsidised freight)
+			-- Used in KPI card alongside [Adjusted Revenue] for instant impact reading
+			VAR _Adjusted  = [Adjusted Revenue]
+			VAR _Baseline  = [Total Revenue]
+			VAR _Delta     = _Adjusted - _Baseline
+			RETURN
+			    IF(ISBLANK(_Delta), BLANK(), _Delta)
+		formatString: +R$ #,##0.00;-R$ #,##0.00;R$ 0.00
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: da345d1b-44dc-47ec-9266-43ea14c5e0fa
+
+	column order_id
+		dataType: string
+		lineageTag: 1df82a90-719a-4ad5-9222-5b0b648ba50b
+		summarizeBy: none
+		sourceColumn: order_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_item_id
+		dataType: int64
+		formatString: 0
+		lineageTag: aa53fc70-7628-41f5-be90-149e783a0dce
+		summarizeBy: sum
+		sourceColumn: order_item_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column product_id
+		dataType: string
+		lineageTag: ba32481b-2942-4500-9875-bb00e5d0c8f3
+		summarizeBy: none
+		sourceColumn: product_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column seller_id
+		dataType: string
+		lineageTag: ebf7523c-fc4d-426d-ab6a-0baa0f2721df
+		summarizeBy: none
+		sourceColumn: seller_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column shipping_limit_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 4eb8d0b7-826d-4c7e-90bf-2a1b2da91fec
+		summarizeBy: none
+		sourceColumn: shipping_limit_date
+
+		variation Variation
+			isDefault
+			relationship: 988f0342-1bb7-4e82-9bbc-93eb419720c9
+			defaultHierarchy: LocalDateTable_0a0f3b6b-618e-44e9-a935-d9dd88e8bc0c.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column price
+		dataType: double
+		lineageTag: 675f178b-6b5a-4f4e-9fab-bb2c4391b9d1
+		summarizeBy: sum
+		sourceColumn: price
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column freight_value
+		dataType: double
+		lineageTag: 41f16867-224e-4bc8-8ae5-8eaa5db9bc4a
+		summarizeBy: sum
+		sourceColumn: freight_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	/// Total revenue per line item: product price + freight value in BRL
+	column 'Item Revenue' =
+			-- CC3: Total Item Revenue (BRL)
+			-- Sums the unit product price and freight cost for this line item
+			-- Represents the total amount billed to the customer for this item
+			-- Both columns cleaned to numeric type in Power Query (Prompt 3.4)
+			-- Format: Brazilian Real — R$ symbol, comma thousands, 2 decimal places
+			order_items[price] + order_items[freight_value]
+		dataType: decimal
+		formatString: R$ #,##0.00
+		lineageTag: d814d389-4277-423f-88a9-dc95f3059b34
+		summarizeBy: sum
+
+	partition order_items = m
+		mode: import
+		source =
+				let
+				    Source = Folder.Files("C:\PowerBi\project"),
+				    #"C:\PowerBi\project\_olist_order_items_dataset csv1" = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_order_items_dataset.csv"]}[Content],
+				    #"Imported CSV" = Csv.Document(#"C:\PowerBi\project\_olist_order_items_dataset csv1",[Delimiter=",", Columns=7, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+				    #"Promoted Headers" = Table.PromoteHeaders(#"Imported CSV", [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"order_id", type text}, {"order_item_id", Int64.Type}, {"product_id", type text}, {"seller_id", type text}, {"shipping_limit_date", type datetime}, {"price", type number}, {"freight_value", type number}})
+				in
+				    #"Changed Type"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

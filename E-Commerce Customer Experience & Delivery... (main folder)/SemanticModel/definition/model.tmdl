@@ -1,0 +1,45 @@
+model Model
+	culture: en-IN
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: en-IN
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+/// Errors in queries that were loaded on 25-04-2026 00:23:36.
+queryGroup 'Query Errors - 25-04-2026 00:23:36'
+
+	annotation PBI_QueryGroupOrder = 0
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_QueryOrder = ["project","customers","geolocation","orders","order_items","order_payments","order_reviews","products","sellers","Errors in order_reviews"]
+
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
+
+ref table project
+ref table DateTableTemplate_b5f0ce0c-7728-4945-b761-262cf6923c35
+ref table LocalDateTable_c12472a2-4c17-4134-9fc7-fb790860f692
+ref table LocalDateTable_c31fe4ac-e781-4060-a5a7-aa248350edeb
+ref table LocalDateTable_90d2aabe-93a5-4c74-996f-475e7506365e
+ref table customers
+ref table geolocation
+ref table orders
+ref table LocalDateTable_86876997-4c38-4f52-aee5-5121b229b35f
+ref table LocalDateTable_fdef7403-4000-4f63-b1a9-ecbb209affdd
+ref table LocalDateTable_6a76aace-8122-4cae-8bab-7b6fefee9704
+ref table LocalDateTable_4cdaa9c9-eef3-4897-bb5a-e98605de9129
+ref table LocalDateTable_7636bf57-7596-4b7d-ae47-e4510bac3dfb
+ref table order_items
+ref table LocalDateTable_0a0f3b6b-618e-44e9-a935-d9dd88e8bc0c
+ref table order_payments
+ref table order_reviews
+ref table LocalDateTable_1ed939e7-5f17-431c-9741-2798a1f00cd7
+ref table products
+ref table sellers
+ref table Calendar
+ref table 'Freight Adjustment'
+ref table 'Min Review Score'
+
+ref cultureInfo en-IN
+

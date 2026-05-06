@@ -1,0 +1,95 @@
+table geolocation
+	lineageTag: fce0df2a-e408-4f3f-ae66-9482c993cf09
+
+	column geolocation_zip_code_prefix
+		dataType: int64
+		formatString: 0
+		lineageTag: 62560220-656a-43c3-8136-806728e02b3c
+		summarizeBy: sum
+		sourceColumn: geolocation_zip_code_prefix
+
+		annotation SummarizationSetBy = Automatic
+
+	column Latitude
+		dataType: double
+		lineageTag: 58f11fe6-dc1c-4f25-960e-8a35a6e506ac
+		summarizeBy: sum
+		sourceColumn: Latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Longitude
+		dataType: double
+		lineageTag: 519544c0-8362-4612-be67-803651499774
+		summarizeBy: sum
+		sourceColumn: Longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column geolocation_state
+		dataType: string
+		lineageTag: 1dbfb71a-d9f9-417f-8825-2db5c69e59a6
+		summarizeBy: none
+		sourceColumn: geolocation_state
+
+		annotation SummarizationSetBy = Automatic
+
+	partition geolocation = m
+		mode: import
+		source =
+				let
+				    // Step 1: Load all files from the project source folder
+				    Source = Folder.Files("C:\PowerBi\project"),
+				
+				    // Step 2: Extract the geolocation CSV file
+				    RawFile = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_geolocation_dataset.csv"]}[Content],
+				
+				    // Step 3: Parse CSV
+				    // UTF-8 (65001) encoding preserved from original
+				    // 5 columns: zip, lat, lng, city, state
+				    ImportedCSV = Csv.Document(RawFile,[Delimiter=",", Columns=5, Encoding=65001, QuoteStyle=QuoteStyle.None]),
+				
+				    // Step 4: Promote first row as column headers
+				    PromotedHeaders = Table.PromoteHeaders(ImportedCSV, [PromoteAllScalars=true]),
+				
+				    // Step 5: Cast all columns to correct data types
+				    ChangedTypes = Table.TransformColumnTypes(PromotedHeaders,{
+				        {"geolocation_zip_code_prefix", Int64.Type},
+				        {"geolocation_lat",            type number},
+				        {"geolocation_lng",            type number},
+				        {"geolocation_city",           type text},
+				        {"geolocation_state",          type text}
+				    }),
+				
+				    // Step 6: Keep only the 4 required columns BEFORE deduplication
+				    // Performance: dropping geolocation_city early reduces memory
+				    // footprint across the heavy dedup operation on 1M+ rows
+				    SelectedColumns = Table.SelectColumns(ChangedTypes,{
+				        "geolocation_zip_code_prefix",
+				        "geolocation_lat",
+				        "geolocation_lng",
+				        "geolocation_state"
+				    }),
+				
+				    // Step 7: Remove duplicates on geolocation_zip_code_prefix
+				    // Table.Distinct keeps the FIRST occurrence of each zip code
+				    // Reduces ~1,000,163 rows down to ~19,015 unique zip codes
+				    RemovedDuplicates = Table.Distinct(SelectedColumns, {"geolocation_zip_code_prefix"}),
+				
+				    // Step 8: Rename lat/lng to clean display names
+				    RenamedColumns = Table.RenameColumns(RemovedDuplicates,{
+				        {"geolocation_lat", "Latitude"},
+				        {"geolocation_lng", "Longitude"}
+				    })
+				
+				in
+				    RenamedColumns
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

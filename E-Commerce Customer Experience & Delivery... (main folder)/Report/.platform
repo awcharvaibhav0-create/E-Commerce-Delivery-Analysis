@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "E-Commerce Customer Experience & Delivery Performance Analysis"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "50bdc69c-ffab-444e-9c8d-e91dd139b176"
+  }
+}

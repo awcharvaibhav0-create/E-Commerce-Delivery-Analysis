@@ -1,0 +1,413 @@
+table orders
+	lineageTag: 9abceb98-b9c5-42e6-afc0-c430eefa9799
+
+	/// Count of distinct orders in filter context
+	measure 'Total Orders' =
+			-- M2: Total Orders
+			-- Counts unique order_ids in filter context using DISTINCTCOUNT
+			-- DISTINCTCOUNT is preferred over COUNTROWS(VALUES()) for clarity
+			-- Correctly handles orders that appear multiple times in order_items
+			-- due to multi-item orders (up to 21 line items per order in this dataset)
+			VAR _Orders =
+			    DISTINCTCOUNT(orders[order_id])
+			RETURN
+			    _Orders
+		formatString: #,##0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: cbd09430-11d9-41ba-9402-11c2a5c5c2de
+
+	/// Percentage of delivered orders that arrived after the estimated delivery date
+	measure 'Late Delivery %' =
+			-- M6: Late Delivery %
+			-- Calculates what % of all DELIVERED orders arrived late
+			-- Denominator scoped to delivered-only (Late + On Time)
+			-- to exclude 'Not Delivered' orders from the rate calculation
+			-- A 'Not Delivered' order is NOT late by definition — it's unresolved
+			-- FILTER on calculated column [Delivery Status] set in Prompt 6.1
+			
+			VAR _LateOrders =
+			    COUNTROWS(
+			        FILTER(
+			            orders,
+			            orders[Delivery Status] = "Late"
+			        )
+			    )
+			
+			VAR _DeliveredOrders =
+			    COUNTROWS(
+			        FILTER(
+			            orders,
+			            orders[Delivery Status] = "Late"
+			                || orders[Delivery Status] = "On Time"
+			        )
+			    )
+			
+			-- DIVIDE safely handles zero delivered orders (empty filter context)
+			-- Returns BLANK() instead of error or misleading 0%
+			VAR _LateRate =
+			    DIVIDE(
+			        _LateOrders,
+			        _DeliveredOrders,
+			        BLANK()
+			    )
+			
+			RETURN
+			    _LateRate
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 22919ab5-1ac3-4964-b808-c03da40305d9
+
+	/// Count of customers placing their first-ever order within the current date filter context
+	measure 'New Customers' =
+			-- M7: New Customers
+			-- A customer is 'New' if their VERY FIRST order date (MIN across ALL time)
+			-- falls within the currently selected date range
+			-- Pattern: compare each customer's all-time first order date
+			-- against the selected period using ALLSELECTED on the Calendar
+			--
+			-- Step 1: Capture the visible date range from the slicer/filter
+			VAR _PeriodStart =
+			    MIN(Calendar[Date])
+			
+			VAR _PeriodEnd =
+			    MAX(Calendar[Date])
+			
+			-- Step 2: For each customer, find their FIRST order date across ALL time
+			-- ALLSELECTED removes Calendar filter only, keeps other filters (e.g. state)
+			-- so we compare their global first order against the selected window
+			VAR _NewCustomers =
+			    CALCULATE(
+			        COUNTROWS(
+			            FILTER(
+			                -- Summarize: one row per customer with their first order date
+			                SUMMARIZE(
+			                    orders,
+			                    orders[customer_id],
+			                    "_FirstOrder",
+			                    MIN(orders[order_purchase_timestamp])
+			                ),
+			                -- Keep only customers whose first order falls in the window
+			                [_FirstOrder] >= _PeriodStart
+			                    && [_FirstOrder] <= _PeriodEnd
+			            )
+			        ),
+			        -- Remove date filter to get GLOBAL first order date per customer
+			        ALLSELECTED(Calendar)
+			    )
+			
+			-- Return BLANK() when no date filter is active (avoids misleading totals)
+			VAR _Result =
+			    IF(
+			        _PeriodStart = BLANK() || _PeriodEnd = BLANK(),
+			        BLANK(),
+			        _NewCustomers
+			    )
+			
+			RETURN
+			    _Result
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 2807dee4-96c1-42d4-8fa9-963765783312
+
+	/// Percentage of delivered orders that arrived on or before the estimated delivery date
+	measure 'On Time Delivery Rate' =
+			-- M8: On Time Delivery Rate
+			-- Defined as the complement of Late Delivery %
+			-- 100% - Late% = On Time Rate
+			-- Reuses [Late Delivery %] measure — DRY principle, single source of truth
+			-- If Late Delivery % is BLANK (no delivered orders in context),
+			-- On Time Rate also returns BLANK to avoid showing misleading 100%
+			
+			VAR _LateRate = [Late Delivery %]
+			
+			VAR _OnTimeRate =
+			    IF(
+			        ISBLANK(_LateRate),
+			        BLANK(),            -- Propagate blank — no delivered orders in context
+			        1 - _LateRate       -- Complement: On Time% + Late% always = 100%
+			    )
+			
+			RETURN
+			    _OnTimeRate
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 5a7f2878-1971-4d55-af4c-c0e15c0a0c5d
+
+	/// Average delivery days for orders that have been delivered, in filter context
+	measure 'Avg Delivery Days' =
+			-- Avg Delivery Days measure
+			-- Averages the [Delivery Days] calculated column across delivered orders only
+			-- FILTER excludes NULLs (undelivered orders where Delivery Days = BLANK)
+			-- Used in scatter plot X axis and KPI card
+			VAR _AvgDays =
+			    AVERAGEX(
+			        FILTER(
+			            orders,
+			            NOT ISBLANK(orders[Delivery Days])
+			        ),
+			        orders[Delivery Days]
+			    )
+			RETURN
+			    IF(ISBLANK(_AvgDays), BLANK(), _AvgDays)
+		formatString: #,##0.0 "days"
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: e92f3c1b-9077-4757-9d2a-5cbae91109d1
+
+	/// Count of late orders as a formatted label for stacked column chart tooltips
+	measure 'Late Orders Count' =
+			-- Late Orders Count
+			-- Simple count of orders with Delivery Status = 'Late' in filter context
+			-- Used as a secondary value in column chart and tooltips
+			VAR _Late =
+			    CALCULATE(
+			        [Total Orders],
+			        orders[Delivery Status] = "Late"
+			    )
+			RETURN
+			    IF(ISBLANK(_Late), 0, _Late)
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 4f72aabc-3fd0-4e42-a19e-7b829794df35
+
+	/// Month-over-Month growth rate of New Customers: (current - prior) / prior
+	measure 'New Cust MoM Growth %' =
+			-- New Customer MoM Growth %
+			-- Measures how fast new customer acquisition is growing vs prior month
+			-- Used for conditional colour formatting on the column chart
+			-- BLANK guard: returns BLANK when either period has no data
+			
+			VAR _Current  = [New Customers]
+			VAR _Previous = CALCULATE([New Customers], PREVIOUSMONTH(Calendar[Date]))
+			
+			VAR _Growth =
+			    IF(
+			        NOT ISBLANK(_Current) && NOT ISBLANK(_Previous) && _Previous <> 0,
+			        DIVIDE(_Current - _Previous, _Previous, BLANK()),
+			        BLANK()
+			    )
+			
+			RETURN _Growth
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 5e003c87-1fde-448d-adb4-097e79cb8b1b
+
+	/// Count of customers who placed at least one order before the current filter period — measures returning customer base
+	measure 'Returning Customers' =
+			-- [Returning Customers]
+			-- Customers active in current period who placed their FIRST ever order
+			-- BEFORE the current period start date
+			-- Returning = All customers in period minus New customers in period
+			VAR _PeriodStart = MIN(Calendar[Date])
+			VAR _AllInPeriod  = [Total Customers]
+			VAR _NewInPeriod  = [New Customers]
+			VAR _Returning    = _AllInPeriod - _NewInPeriod
+			RETURN
+			    IF(
+			        ISBLANK(_PeriodStart),
+			        BLANK(),
+			        IF(_Returning < 0, 0, _Returning)
+			    )
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 5e11b748-a267-46de-8436-405464649e9e
+
+	/// Percentage of customers in current period who are new (first-ever order)
+	measure '% New Customers' =
+			-- [% New Customers] — share of current period customers who are new
+			-- Complement: 1 - this = % Returning
+			-- In 2016-2018 dataset, consistently ~95%+ due to low repeat-purchase rate
+			VAR _New   = [New Customers]
+			VAR _Total = [Total Customers]
+			RETURN
+			    DIVIDE(_New, _Total, BLANK())
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 969d71a8-3de4-4428-9422-2c20554639c6
+
+	column order_id
+		dataType: string
+		lineageTag: 9536956f-5aea-4e6f-93bb-4305a3425383
+		summarizeBy: none
+		sourceColumn: order_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column customer_id
+		dataType: string
+		lineageTag: fe860867-755b-41ce-a706-e191d5a722b9
+		summarizeBy: none
+		sourceColumn: customer_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_status
+		dataType: string
+		lineageTag: cba1c76d-da3e-433b-b866-08763d13e75f
+		summarizeBy: none
+		sourceColumn: order_status
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_purchase_timestamp
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: f0a204fb-a0e7-41ed-90ea-e3acf25bcfcc
+		summarizeBy: none
+		sourceColumn: order_purchase_timestamp
+
+		variation Variation
+			isDefault
+			relationship: e1a2d242-be32-47f1-8c2e-65f1384d9811
+			defaultHierarchy: LocalDateTable_86876997-4c38-4f52-aee5-5121b229b35f.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_approved_at
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: da564cee-9fe7-4ae8-9597-a2857da549a5
+		summarizeBy: none
+		sourceColumn: order_approved_at
+
+		variation Variation
+			isDefault
+			relationship: 6590b91c-b48a-40ff-8085-177c97f52270
+			defaultHierarchy: LocalDateTable_fdef7403-4000-4f63-b1a9-ecbb209affdd.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_delivered_carrier_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 780bd353-d585-4bfb-946a-6546f8c70f7a
+		summarizeBy: none
+		sourceColumn: order_delivered_carrier_date
+
+		variation Variation
+			isDefault
+			relationship: 447b1e13-8079-458e-acdb-1658cb1115ce
+			defaultHierarchy: LocalDateTable_6a76aace-8122-4cae-8bab-7b6fefee9704.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_delivered_customer_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 866e0ee4-bcee-4978-ba12-7a9320cc14a9
+		summarizeBy: none
+		sourceColumn: order_delivered_customer_date
+
+		variation Variation
+			isDefault
+			relationship: 8904aa1d-14d2-40c1-9121-f295f6961411
+			defaultHierarchy: LocalDateTable_4cdaa9c9-eef3-4897-bb5a-e98605de9129.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	column order_estimated_delivery_date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: d1a44c0c-f053-4aa5-9e43-509979cef105
+		summarizeBy: none
+		sourceColumn: order_estimated_delivery_date
+
+		variation Variation
+			isDefault
+			relationship: 14c78a62-89ca-4581-8d7a-f40e3203cf28
+			defaultHierarchy: LocalDateTable_7636bf57-7596-4b7d-ae47-e4510bac3dfb.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Days between order purchase and actual customer delivery
+	column 'Delivery Days' =
+			-- CC1: Delivery Duration
+			-- Calculates whole days from order placement to actual delivery date
+			-- DATEDIFF(start, end, DAY) handles time-portion differences automatically
+			-- Returns NULL when order_delivered_customer_date is NULL (undelivered orders)
+			-- NULL propagation is intentional here — use [Delivery Status] to segment nulls
+			DATEDIFF(
+			    orders[order_purchase_timestamp],
+			    orders[order_delivered_customer_date],
+			    DAY
+			)
+		dataType: int64
+		lineageTag: 7acbe8b9-c0a0-4c79-b491-fe8b7e3d4e65
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Delivery performance flag: Late / On Time / Not Delivered
+	column 'Delivery Status' =
+			-- CC2: Delivery Status Flag
+			-- Three-tier classification of delivery performance
+			-- ISBLANK check MUST come first — if delivered date is null,
+			-- the greater-than comparison would silently return FALSE,
+			-- producing incorrect 'On Time' results for undelivered orders
+			IF(
+			    -- Tier 1: Null guard — order not yet delivered or date not recorded
+			    ISBLANK(orders[order_delivered_customer_date]),
+			    "Not Delivered",
+			    IF(
+			        -- Tier 2: Actual delivery AFTER the promised estimated date → Late
+			        orders[order_delivered_customer_date] > orders[order_estimated_delivery_date],
+			        "Late",
+			        -- Tier 3: Delivered ON or BEFORE estimated date → On Time
+			        "On Time"
+			    )
+			)
+		dataType: string
+		lineageTag: 7d55ab5d-dc09-4a20-9276-f4734992e829
+		summarizeBy: none
+
+	/// Date-only key extracted from order_purchase_timestamp for Calendar relationship
+	column 'Order Date' =
+			-- Date bridge key: strips time from DateTime for clean join to Calendar[Date]
+			-- Required because Calendar[Date] is type Date, but order_purchase_timestamp
+			-- is DateTime — a DateTime-to-Date relationship only matches midnight rows
+			DATE(
+			    YEAR(orders[order_purchase_timestamp]),
+			    MONTH(orders[order_purchase_timestamp]),
+			    DAY(orders[order_purchase_timestamp])
+			)
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: cf6f4ce9-b0f5-4ea0-8293-af072802fe01
+		summarizeBy: none
+
+	partition orders = m
+		mode: import
+		source =
+				let
+				    // Step 1: Load all files from the project source folder
+				    Source = Folder.Files("C:\PowerBi\project"),
+				
+				    // Step 2: Select the olist_orders_dataset CSV file
+				    RawFile = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_orders_dataset.csv"]}[Content],
+				
+				    // Step 3: Parse the CSV with correct delimiter and encoding
+				    ImportedCSV = Csv.Document(RawFile,[Delimiter=",", Columns=8, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+				
+				    // Step 4: Promote first row as column headers
+				    PromotedHeaders = Table.PromoteHeaders(ImportedCSV, [PromoteAllScalars=true]),
+				
+				    // Step 5: Convert all date/time columns to DateTime type
+				    ChangedTypes = Table.TransformColumnTypes(PromotedHeaders,{
+				        {"order_id",                        type text},
+				        {"customer_id",                     type text},
+				        {"order_status",                    type text},
+				        {"order_purchase_timestamp",        type datetime},
+				        {"order_approved_at",               type datetime},
+				        {"order_delivered_carrier_date",    type datetime},
+				        {"order_delivered_customer_date",   type datetime},
+				        {"order_estimated_delivery_date",   type datetime}
+				    }),
+				
+				    // Step 8: Remove rows where order_approved_at is null
+				    RemovedNullApprovedAt = Table.SelectRows(ChangedTypes, each [order_approved_at] <> null)
+				in
+				    RemovedNullApprovedAt
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,178 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 41.325169947852828
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 204.04574188273136,
+            "y": 0
+          },
+          "nodeIndex": "customers",
+          "nodeLineageTag": "1ab5aabe-28b3-492d-93d4-0f36603d289a",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 1
+        },
+        {
+          "location": {
+            "x": 561.59170338312049,
+            "y": 982.44687489636635
+          },
+          "nodeIndex": "geolocation",
+          "nodeLineageTag": "fce0df2a-e408-4f3f-ae66-9482c993cf09",
+          "size": {
+            "height": 200,
+            "width": 189.45021805888814
+          },
+          "zIndex": 2
+        },
+        {
+          "location": {
+            "x": 721.53776954503371,
+            "y": 686.54078910558542
+          },
+          "nodeIndex": "order_items",
+          "nodeLineageTag": "b189d592-4719-4f19-bc24-26b0a3252589",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 3
+        },
+        {
+          "location": {
+            "x": 692.03797772300845,
+            "y": 0
+          },
+          "nodeIndex": "order_payments",
+          "nodeLineageTag": "039396f0-32e9-4ec0-acc7-98f86801946a",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 4
+        },
+        {
+          "location": {
+            "x": 1083.4885491642415,
+            "y": 80.688164591789842
+          },
+          "nodeIndex": "order_reviews",
+          "nodeLineageTag": "e572a5a3-59b2-4965-971a-13efdd83d039",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 5
+        },
+        {
+          "location": {
+            "x": 396.0611632918006,
+            "y": 321.51581320951055
+          },
+          "nodeIndex": "orders",
+          "nodeLineageTag": "9abceb98-b9c5-42e6-afc0-c430eefa9799",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 6
+        },
+        {
+          "location": {
+            "x": 0,
+            "y": 307.59989566018811
+          },
+          "nodeIndex": "products",
+          "nodeLineageTag": "6c2b3848-3510-4252-924f-59644efb23d2",
+          "size": {
+            "height": 272.16536096112458,
+            "width": 234
+          },
+          "zIndex": 12
+        },
+        {
+          "location": {
+            "x": 850.69741943966585,
+            "y": 970.84412797254083
+          },
+          "nodeIndex": "project",
+          "nodeLineageTag": "4c02d997-ab2f-47f2-81ed-e656e20d0569",
+          "size": {
+            "height": 224,
+            "width": 234
+          },
+          "zIndex": 7
+        },
+        {
+          "location": {
+            "x": 1449.1774789218516,
+            "y": 786.10042389717512
+          },
+          "nodeIndex": "sellers",
+          "nodeLineageTag": "bbffbb6b-bae3-4c9b-93a5-fe7ef644b182",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 8
+        },
+        {
+          "location": {
+            "x": 945.31906138779755,
+            "y": 370.34663756288779
+          },
+          "nodeIndex": "Calendar",
+          "nodeLineageTag": "2a7775c1-8a2f-4e91-aab4-d1bac912169c",
+          "size": {
+            "height": 300,
+            "width": 192.63234534039611
+          },
+          "zIndex": 9
+        },
+        {
+          "location": {
+            "x": 0,
+            "y": 973.50652583570536
+          },
+          "nodeIndex": "Freight Adjustment",
+          "nodeLineageTag": "38ec7197-8612-4c51-a898-d1389f209b03",
+          "size": {
+            "height": 200,
+            "width": 175.3928387208241
+          },
+          "zIndex": 10
+        },
+        {
+          "location": {
+            "x": 249.79363003676019,
+            "y": 975.45724259891244
+          },
+          "nodeIndex": "Min Review Score",
+          "nodeLineageTag": "64d482eb-524e-4058-b049-922d6d228cec",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 11
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 45.7223883343561,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}

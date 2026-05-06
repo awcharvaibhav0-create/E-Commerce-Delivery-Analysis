@@ -1,0 +1,222 @@
+table order_reviews
+	lineageTag: e572a5a3-59b2-4965-971a-13efdd83d039
+
+	/// Average review score (1-5 scale) across all reviews in filter context
+	measure 'Avg Review Score' =
+			-- M5: Average Review Score
+			-- Calculates the mean review_score across all order_reviews rows in context
+			-- AVERAGE natively ignores blank/null rows (nulls removed in Power Query 3.4)
+			-- VAR pattern used for consistency and to allow easy extension
+			-- Format: 1 decimal place (e.g. 4.1) — sufficient precision for a 1-5 scale
+			VAR _AvgScore =
+			    AVERAGE(order_reviews[review_score])
+			RETURN
+			    _AvgScore
+		formatString: #,##0.0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: 033d0098-5fe2-4959-af25-55956541fc89
+
+	/// Percentage of reviews with score 4 or 5 (Positive sentiment) out of total reviews
+	measure '% Positive Reviews' =
+			-- % Positive Reviews (score 4-5)
+			-- Counts reviews with Sentiment = 'Positive' divided by total reviews
+			-- Uses the [Sentiment] calculated column created in Prompt 6.1
+			-- DIVIDE with BLANK() guard handles empty filter contexts
+			VAR _Positive =
+			    CALCULATE(
+			        COUNTROWS(order_reviews),
+			        order_reviews[Sentiment] = "Positive"
+			    )
+			VAR _Total = COUNTROWS(order_reviews)
+			RETURN
+			    DIVIDE(_Positive, _Total, BLANK())
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: a8d26316-1bb2-4787-a1a5-181c62038d23
+
+	/// Percentage of reviews with score 1 or 2 (Negative sentiment) out of total reviews
+	measure '% Negative Reviews' =
+			-- % Negative Reviews (score 1-2)
+			-- Counts reviews with Sentiment = 'Negative' divided by total reviews
+			-- Complement measure to % Positive Reviews
+			-- Positive% + Neutral% + Negative% = 100% always
+			VAR _Negative =
+			    CALCULATE(
+			        COUNTROWS(order_reviews),
+			        order_reviews[Sentiment] = "Negative"
+			    )
+			VAR _Total = COUNTROWS(order_reviews)
+			RETURN
+			    DIVIDE(_Negative, _Total, BLANK())
+		formatString: 0.0%
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: c35a24e4-ad7e-4a09-8146-5c1f2559e763
+
+	/// Count of reviews in current filter context — used as Y axis for score distribution chart
+	measure 'Review Count' =
+			-- Review Count
+			-- Simple COUNTROWS of order_reviews in filter context
+			-- Separate from [Total Orders] to avoid confusion
+			-- Used as Y axis on the score distribution column chart
+			-- and as the value field in the sentiment donut chart
+			VAR _Count = COUNTROWS(order_reviews)
+			RETURN
+			    IF(ISBLANK(_Count), BLANK(), _Count)
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 3a0092dd-9adc-4a4a-babd-f480abc71299
+
+	/// Count of reviews meeting or exceeding the selected minimum score threshold
+	measure 'Filtered Review Count' =
+			-- Filtered Review Count
+			-- Counts only reviews where review_score >= Min Review Score Value
+			-- When slider = 1: all 99,224 reviews included
+			-- When slider = 3: 84,649 reviews (scores 3, 4, 5)
+			-- When slider = 4: 76,470 reviews (Positive only: scores 4, 5)
+			-- When slider = 5: 57,328 reviews (5-star only)
+			VAR _MinScore = [Min Review Score Value]
+			VAR _FilteredCount =
+			    CALCULATE(
+			        COUNTROWS(order_reviews),
+			        order_reviews[review_score] >= _MinScore
+			    )
+			RETURN
+			    IF(ISBLANK(_FilteredCount), 0, _FilteredCount)
+		formatString: #,##0
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: 6c2a1680-04b6-497a-8d8b-7d8191a8cded
+
+	/// Average review score calculated only from reviews meeting the minimum score threshold
+	measure 'Filtered Avg Score' =
+			-- Filtered Avg Review Score
+			-- Calculates the average score only for reviews >= Min Review Score Value
+			-- When slider = 1: same as [Avg Review Score] (4.09)
+			-- When slider = 3: avg of scores 3-5 only (higher than overall avg)
+			-- When slider = 4: avg of Positive reviews only (~4.57)
+			-- When slider = 5: exactly 5.0 (only 5-star reviews)
+			VAR _MinScore = [Min Review Score Value]
+			VAR _FilteredAvg =
+			    CALCULATE(
+			        AVERAGE(order_reviews[review_score]),
+			        order_reviews[review_score] >= _MinScore
+			    )
+			RETURN
+			    IF(ISBLANK(_FilteredAvg), BLANK(), _FilteredAvg)
+		formatString: 0.00 "★"
+		displayFolder: 🔧 What-If Parameters
+		lineageTag: 168c333c-6952-4237-a7f9-5121a88b3034
+
+	column order_id
+		dataType: string
+		lineageTag: 8457b391-048e-4d36-877b-891858885ba6
+		summarizeBy: none
+		sourceColumn: order_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column review_score
+		dataType: int64
+		formatString: 0
+		lineageTag: 319e120d-9fad-4858-a315-06ae77a2924a
+		summarizeBy: sum
+		sourceColumn: review_score
+
+		annotation SummarizationSetBy = Automatic
+
+	column review_creation_date
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 861db9e5-f8bb-410a-bed6-649ab6a1103d
+		summarizeBy: none
+		sourceColumn: review_creation_date
+
+		variation Variation
+			isDefault
+			relationship: 314492e2-4758-4a0b-ad67-21ee2a3d643c
+			defaultHierarchy: LocalDateTable_1ed939e7-5f17-431c-9741-2798a1f00cd7.'Date Hierarchy'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	/// Customer sentiment derived from review score: Positive (4-5), Neutral (3), Negative (1-2)
+	column Sentiment =
+			-- CC4: Review Sentiment Classification
+			-- Maps the 1-5 integer review_score to a text sentiment label
+			-- SWITCH(TRUE()) is the idiomatic DAX pattern for range-based conditions
+			-- More readable and faster than nested IF for 3+ mutually exclusive branches
+			-- The final "Negative" has no condition — it is the ELSE catch-all
+			-- which correctly captures both score=1 and score=2 after prior checks fail
+			SWITCH(
+			    TRUE(),
+			    -- Positive: scores 4-5 → satisfied customers
+			    order_reviews[review_score] >= 4,  "Positive",
+			    -- Neutral: score 3 → neither satisfied nor dissatisfied
+			    order_reviews[review_score] = 3,   "Neutral",
+			    -- Negative: scores 1-2 → dissatisfied customers (ELSE branch)
+			    "Negative"
+			)
+		dataType: string
+		lineageTag: 78ce94de-9d7d-4fb8-a206-dab52eaa5485
+		summarizeBy: none
+
+	partition order_reviews = m
+		mode: import
+		source =
+				let
+				    // Step 1: Load source folder
+				    Source = Folder.Files("C:\PowerBi\project"),
+				
+				    // Step 2: Extract the reviews CSV binary
+				    RawFile = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_order_reviews_dataset.csv"]}[Content],
+				
+				    // Step 3: Parse CSV
+				    // UTF-8 (65001) required for Portuguese review text
+				    // QuoteStyle.Csv handles embedded commas/quotes in comment fields
+				    ImportedCSV = Csv.Document(RawFile,[Delimiter=",", Columns=7, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				
+				    // Step 4: Promote first row as column headers
+				    PromotedHeaders = Table.PromoteHeaders(ImportedCSV, [PromoteAllScalars=true]),
+				
+				    // Step 5: SELECT only 3 needed columns EARLY
+				    // Performance: drops 4 heavy text columns before any casting or filtering
+				    SelectedColumns = Table.SelectColumns(PromotedHeaders,{
+				        "order_id",
+				        "review_score",
+				        "review_creation_date"
+				    }),
+				
+				    // Step 6: Cast order_id and review_score
+				    // review_creation_date kept as text intentionally - needs locale-aware parsing
+				    CastScoreAndId = Table.TransformColumnTypes(SelectedColumns,{
+				        {"order_id",     type text},
+				        {"review_score", Int64.Type}
+				    }),
+				
+				    // Step 7: Remove null review_score rows before date conversion
+				    RemovedNullScores = Table.SelectRows(CastScoreAndId, each [review_score] <> null),
+				
+				    // Step 8: Parse date using Brazilian locale (pt-BR)
+				    // CSV stores dates as 'DD-MM-YYYY HH:MM:SS' (day-first format)
+				    // Standard type datetime cast fails because Power Query defaults to MM-DD-YYYY
+				    // DateTime.FromText with Culture='pt-BR' correctly parses DD-MM-YYYY
+				    ParsedDateTime = Table.TransformColumns(RemovedNullScores,{
+				        {"review_creation_date",
+				         each if _ = null or _ = "" then null
+				              else DateTime.FromText(_, [Culture="pt-BR"]),
+				         type datetime}
+				    }),
+				
+				    // Step 9: Strip time component - convert DateTime -> Date
+				    // All times are 00:00:00 so only the date part is meaningful
+				    CastToDate = Table.TransformColumns(ParsedDateTime,{
+				        {"review_creation_date", Date.From, type date}
+				    })
+				
+				in
+				    CastToDate
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

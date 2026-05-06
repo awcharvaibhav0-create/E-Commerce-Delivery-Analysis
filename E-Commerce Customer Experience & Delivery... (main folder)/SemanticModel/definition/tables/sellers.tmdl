@@ -1,0 +1,74 @@
+table sellers
+	lineageTag: bbffbb6b-bae3-4c9b-93a5-fe7ef644b182
+
+	/// Count of distinct states where at least one active seller is located
+	measure 'Seller States Reached' =
+			-- Seller States Reached
+			-- Counts distinct states with active sellers in filter context
+			-- Measures geographic footprint of the Olist seller network
+			-- Routes through order_items to count only active-seller states
+			VAR _States =
+			    CALCULATE(
+			        DISTINCTCOUNT(sellers[seller_state]),
+			        FILTER(
+			            sellers,
+			            NOT ISBLANK(
+			                CALCULATE(DISTINCTCOUNT(order_items[seller_id]))
+			            )
+			        )
+			    )
+			RETURN
+			    IF(ISBLANK(_States), 0, _States)
+		formatString: #,##0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: e8603c4f-c75b-4b2b-93bf-aa20cead8d98
+
+	column seller_id
+		dataType: string
+		lineageTag: e0e7264a-3ede-4b32-94bf-c5aecbd10ed9
+		summarizeBy: none
+		sourceColumn: seller_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column seller_zip_code_prefix
+		dataType: int64
+		formatString: 0
+		lineageTag: 0ba21eb6-2548-4d40-99d6-9e38ba5ffa0d
+		summarizeBy: none
+		sourceColumn: seller_zip_code_prefix
+
+		annotation SummarizationSetBy = Automatic
+
+	column seller_city
+		dataType: string
+		lineageTag: 539d2504-a6e5-4fce-a767-aad7941b67dc
+		summarizeBy: none
+		sourceColumn: seller_city
+
+		annotation SummarizationSetBy = Automatic
+
+	column seller_state
+		dataType: string
+		lineageTag: 87f05790-5b6f-47ef-bf13-94cf407c6ee8
+		summarizeBy: none
+		sourceColumn: seller_state
+
+		annotation SummarizationSetBy = Automatic
+
+	partition sellers = m
+		mode: import
+		source =
+				let
+				    Source = Folder.Files("C:\PowerBi\project"),
+				    #"C:\PowerBi\project\_olist_sellers_dataset csv1" = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_sellers_dataset.csv"]}[Content],
+				    #"Imported CSV" = Csv.Document(#"C:\PowerBi\project\_olist_sellers_dataset csv1",[Delimiter=",", Columns=4, Encoding=65001, QuoteStyle=QuoteStyle.None]),
+				    #"Promoted Headers" = Table.PromoteHeaders(#"Imported CSV", [PromoteAllScalars=true]),
+				    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"seller_id", type text}, {"seller_zip_code_prefix", Int64.Type}, {"seller_city", type text}, {"seller_state", type text}})
+				in
+				    #"Changed Type"
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

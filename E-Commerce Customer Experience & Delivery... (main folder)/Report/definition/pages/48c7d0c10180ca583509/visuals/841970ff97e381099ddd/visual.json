@@ -1,0 +1,111 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
+  "name": "841970ff97e381099ddd",
+  "position": {
+    "x": 168.83116883116884,
+    "y": 0,
+    "z": 0,
+    "height": 206.49350649350649,
+    "width": 941.55844155844159,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "🎯 SDG 8: Decent Work and Economic Growth",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontFamily": "Georgia",
+                      "fontSize": "20pt",
+                      "color": "#e8512c"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "The Olist Brazilian E-Commerce dataset (2016–2018) documents a pivotal period of digital marketplace growth in Latin America. This analysis examines how Olist's platform enabled ",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  },
+                  {
+                    "value": "3,095 small and medium enterprises",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  },
+                  {
+                    "value": " across ",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  },
+                  {
+                    "value": "23 Brazilian states",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  },
+                  {
+                    "value": " to participate in the digital economy — directly advancing UN Sustainable Development Goal 8: Decent Work and Economic Growth.",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": ""
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "By connecting SME sellers with customers through a unified digital marketplace, Olist demonstrates how technology-enabled commerce can democratise economic participation for businesses of all sizes across geographically dispersed regions.",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt",
+                      "color": "#000000"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": ""
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

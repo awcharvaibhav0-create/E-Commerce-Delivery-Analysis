@@ -1,0 +1,143 @@
+table customers
+	lineageTag: 1ab5aabe-28b3-492d-93d4-0f36603d289a
+
+	/// Count of distinct unique customers in filter context
+	measure 'Total Customers' =
+			-- M3: Total Customers
+			-- Counts unique customer_unique_id values in filter context
+			-- Uses customer_unique_id (not customer_id) because one real-world customer
+			-- can place multiple orders and receive a new customer_id per order,
+			-- but their customer_unique_id stays constant across all their orders
+			VAR _Customers =
+			    DISTINCTCOUNT(customers[customer_unique_id])
+			RETURN
+			    _Customers
+		formatString: #,##0
+		displayFolder: 📊 Basic Metrics
+		lineageTag: d95a1f97-2bdd-4c41-91fc-022b0291d921
+
+	/// Running total of cumulative unique customers from dataset start to last visible date
+	measure 'Cumulative Customers' =
+			-- Cumulative Customers (Running Total) — corrected routing
+			-- Routes through orders table (which has the Calendar relationship)
+			-- to find customers whose first-ever order falls on or before _LastDate
+			-- ALLSELECTED removes the date filter, then reapplies the <= constraint
+			-- producing the correct monotonically increasing cumulative curve
+			
+			VAR _LastDate = MAX(Calendar[Date])
+			
+			VAR _CumulativeCustomers =
+			    CALCULATE(
+			        DISTINCTCOUNT(orders[customer_id]),
+			        FILTER(
+			            ALL(orders[Order Date]),
+			            orders[Order Date] <= _LastDate
+			        )
+			    )
+			
+			RETURN
+			    IF(ISBLANK(_LastDate), BLANK(), _CumulativeCustomers)
+		formatString: #,##0
+		displayFolder: 📈 Advanced Metrics
+		lineageTag: 8e5cf502-0bb4-4917-b8d4-fc0219434e77
+
+	column customer_id
+		dataType: string
+		lineageTag: de5d0de3-bbae-4d97-824e-a2e2f84ee40f
+		summarizeBy: none
+		sourceColumn: customer_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column customer_unique_id
+		dataType: string
+		lineageTag: 0e512dd2-ff53-4522-aa15-603957436537
+		summarizeBy: none
+		sourceColumn: customer_unique_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column City
+		dataType: string
+		lineageTag: 51effe2d-4260-4ec3-ba7b-ae6822e1a52f
+		summarizeBy: none
+		sourceColumn: City
+
+		annotation SummarizationSetBy = Automatic
+
+	column State
+		dataType: string
+		lineageTag: 0dfdf73f-f28d-4cbb-a211-3ad1c2a10de8
+		dataCategory: StateOrProvince
+		summarizeBy: none
+		sourceColumn: State
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Display label combining City and State: e.g. Sao Paulo, SP
+	column 'Customer Location' =
+			-- CC5: Full Location Label
+			-- Concatenates the cleaned City and State columns from the customers table
+			-- City was Title-cased using Text.Proper in Power Query (Prompt 3.3)
+			-- State was Uppercased using Text.Upper in Power Query (Prompt 3.3)
+			-- No additional text transformation needed here
+			-- Example output: 'Sao Paulo, SP' / 'Rio De Janeiro, RJ'
+			customers[City] & ", " & customers[State]
+		dataType: string
+		lineageTag: a6b5254d-bf79-4036-9359-efd3341e6148
+		summarizeBy: none
+
+	partition customers = m
+		mode: import
+		source =
+				let
+				    // Step 1: Load all files from the project source folder
+				    Source = Folder.Files("C:\PowerBi\project"),
+				
+				    // Step 2: Extract the customers CSV file
+				    RawFile = Source{[#"Folder Path"="C:\PowerBi\project\",Name="olist_customers_dataset.csv"]}[Content],
+				
+				    // Step 3: Parse CSV (5 columns, Latin-1 encoding)
+				    ImportedCSV = Csv.Document(RawFile,[Delimiter=",", Columns=5, Encoding=1252, QuoteStyle=QuoteStyle.None]),
+				
+				    // Step 4: Promote first row as column headers
+				    PromotedHeaders = Table.PromoteHeaders(ImportedCSV, [PromoteAllScalars=true]),
+				
+				    // Step 5: Cast all columns to correct data types
+				    ChangedTypes = Table.TransformColumnTypes(PromotedHeaders,{
+				        {"customer_id",             type text},
+				        {"customer_unique_id",      type text},
+				        {"customer_zip_code_prefix",Int64.Type},
+				        {"customer_city",           type text},
+				        {"customer_state",          type text}
+				    }),
+				
+				    // Step 6: Remove duplicate rows based on customer_unique_id (keep first occurrence)
+				    RemovedDuplicates = Table.Distinct(ChangedTypes, {"customer_unique_id"}),
+				
+				    // Step 7: Capitalize each word in customer_city (e.g. 'sao paulo' -> 'Sao Paulo')
+				    CapitalizedCity = Table.TransformColumns(RemovedDuplicates,{
+				        {"customer_city", Text.Proper, type text}
+				    }),
+				
+				    // Step 8: Uppercase customer_state (e.g. 'sp' -> 'SP')
+				    UppercasedState = Table.TransformColumns(CapitalizedCity,{
+				        {"customer_state", Text.Upper, type text}
+				    }),
+				
+				    // Step 9: Remove the customer_zip_code_prefix column
+				    RemovedZipCode = Table.RemoveColumns(UppercasedState,{"customer_zip_code_prefix"}),
+				
+				    // Step 10: Rename customer_city -> City and customer_state -> State
+				    RenamedColumns = Table.RenameColumns(RemovedZipCode,{
+				        {"customer_city",  "City"},
+				        {"customer_state", "State"}
+				    })
+				
+				in
+				    RenamedColumns
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

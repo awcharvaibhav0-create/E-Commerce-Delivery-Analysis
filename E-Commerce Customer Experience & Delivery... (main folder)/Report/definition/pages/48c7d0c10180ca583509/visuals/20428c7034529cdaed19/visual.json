@@ -1,0 +1,121 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
+  "name": "20428c7034529cdaed19",
+  "position": {
+    "x": 1.2987012987012987,
+    "y": 525.974025974026,
+    "z": 8000,
+    "height": 194.80519480519479,
+    "width": 1268.8311688311687,
+    "tabOrder": 8000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": " ",
+                    "textStyle": {
+                      "fontFamily": "Anthropic Sans, sans-serif",
+                      "fontSize": "16pt",
+                      "color": "#3d3d3a"
+                    }
+                  },
+                  {
+                    "value": "KEY FINDINGS & IMPACT",
+                    "textStyle": {
+                      "fontWeight": "bold",
+                      "fontFamily": "Georgia",
+                      "fontSize": "18pt",
+                      "color": "#3d3d3a"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": ""
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Over 3,000 sellers have been empowered to reach customers across Brazil through the platform",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ],
+                "listType": "bullet"
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Nationwide coverage across multiple states demonstrates inclusive marketplace accessibility",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ],
+                "listType": "bullet"
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Significant revenue generation highlights strong economic contribution of e-commerce",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ],
+                "listType": "bullet"
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Average review score indicates good product quality and customer satisfaction",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ],
+                "listType": "bullet"
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Consistent seller growth shows sustained expansion and platform adoption",
+                    "textStyle": {
+                      "fontFamily": "Cambria",
+                      "fontSize": "14pt"
+                    }
+                  }
+                ],
+                "listType": "bullet"
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": ""
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}
